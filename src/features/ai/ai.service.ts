@@ -34,15 +34,29 @@ async function callOpenAI(prompt: string, schemaName: string) {
 }
 
 export async function parseJobDescription(text: string) {
-  const content = await callOpenAI(
-    `Extract job requirements as JSON.`,
-    "JobDescriptionParseOutput"
-  );
-  return JobDescriptionParseOutputSchema.parse(JSON.parse(content));
+  try {
+    const content = await callOpenAI(
+      `Extract structured job requirements as strict JSON following schema JobDescriptionParseOutput.
+- For each requirement, include skill_phrase, required_level_0_10 (minimum acceptable), importance_1_5, required_months_experience, strictness ("mandatory"|"preferred"|"nice_to_have").
+- Keep phrasing concise, no invented skills. Use the job description only.`,
+      "JobDescriptionParseOutput"
+    );
+    return JobDescriptionParseOutputSchema.parse(JSON.parse(content));
+  } catch (err) {
+    console.error("parseJobDescription failed, falling back to empty requirements", err);
+    return { requirements: [], proposed_new_skills: [] };
+  }
 }
 
 export async function parseCV(text: string) {
-  const content = await callOpenAI(`Extract skills from CV text as JSON.`, "CVParseOutput");
+  const content = await callOpenAI(
+    `Extract skills from CV/resume text as strict JSON matching schema CVParseOutput.
+- detected[].skill_phrase must be copied from the CV.
+- Include evidence_snippets[], evidence_location (e.g., "experience", "projects", "education"), months_experience (integer months), estimated_level_0_10 (0 beginner, 10 expert).
+- Do NOT invent experience; if unclear, set months_experience=0 and evidence_location="unknown".
+- proposed_new_skills only when no close match exists.`,
+    "CVParseOutput"
+  );
   return CVParseOutputSchema.parse(JSON.parse(content));
 }
 

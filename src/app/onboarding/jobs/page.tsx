@@ -7,6 +7,7 @@ export default function OnboardingJobsPage() {
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [desc, setDesc] = useState("");
+  const [priority, setPriority] = useState(5);
   const [error, setError] = useState<string | null>(null);
   const [createdIds, setCreatedIds] = useState<string[]>([]);
 
@@ -28,7 +29,7 @@ export default function OnboardingJobsPage() {
         role_title: role,
         description_text: desc,
         status: "target",
-        priority_weight: 3,
+        priority_weight: priority,
       }),
     });
     const json = await res.json().catch(() => null);
@@ -43,28 +44,41 @@ export default function OnboardingJobsPage() {
   }
 
   return (
-    <div style={{ padding: 16, display: "grid", gap: 12 }}>
-      <h1>Onboarding: Jobs</h1>
-      {error && <p>{error}</p>}
-      <form onSubmit={submit} style={{ display: "grid", gap: 8, maxWidth: 520 }}>
+    <div className="page" style={{ display: "grid", gap: 12 }}>
+      <div className="card" style={{ maxWidth: 720, margin: "0 auto", display: "grid", gap: 12 }}>
+        <h1 style={{ margin: 0 }}>Onboarding: Jobs</h1>
+        <p style={{ color: "#475569" }}>Add at least one target job. We will extract requirements later.</p>
+        {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+        <form onSubmit={submit} className="grid">
         <input placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} required />
         <input placeholder="Role title" value={role} onChange={(e) => setRole(e.target.value)} required />
         <textarea placeholder="Job description" value={desc} onChange={(e) => setDesc(e.target.value)} rows={5} required />
-        <button type="submit">Add job</button>
+        <label>
+          Importance (1-10)
+          <input
+            type="number"
+            min={1}
+            max={10}
+            value={priority}
+            onChange={(e) => setPriority(Number(e.target.value))}
+          />
+        </label>
+        <button type="submit" className="primary">Add job</button>
       </form>
 
-      {createdIds.length > 0 && (
-        <div>
-          <h3>Created jobs</h3>
-          <ul>
-            {createdIds.map((id) => (
-              <li key={id}><a href={`/jobs/${id}/overview`}>{id}</a></li>
-            ))}
-          </ul>
-        </div>
-      )}
+        {createdIds.length > 0 && (
+          <div className="card" style={{ background: "#f8fafc" }}>
+            <h3 style={{ margin: 0 }}>Created jobs</h3>
+            <ul>
+              {createdIds.map((id) => (
+                <li key={id}><a href={`/jobs/${id}/overview`}>{id}</a></li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-      <a href="/onboarding/done">Finish</a>
+        <a className="primary-link" href="/onboarding/done">Finish</a>
+      </div>
     </div>
   );
 }

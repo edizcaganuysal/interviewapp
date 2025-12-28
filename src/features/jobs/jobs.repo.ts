@@ -24,7 +24,7 @@ export async function listJobRequirements(jobId: string, req?: Request) {
   const supabase = await createSupabaseServerClient(req);
   const { data, error } = await supabase
     .from("job_skill_requirements")
-    .select("id,skill_id,required_level,importance")
+    .select("id,skill_id,required_level,importance,required_months_experience,strictness")
     .eq("job_id", jobId)
     .order("importance", { ascending: false });
   if (error) throw new Error(error.message);
@@ -33,7 +33,7 @@ export async function listJobRequirements(jobId: string, req?: Request) {
 
 export async function upsertJobRequirement(
   jobId: string,
-  payload: { skill_id: string; required_level: number; importance: number },
+  payload: { skill_id: string; required_level: number; importance: number; required_months_experience?: number; strictness?: string | null },
   req?: Request
 ) {
   const supabase = await createSupabaseServerClient(req);
@@ -48,7 +48,7 @@ export async function upsertJobRequirement(
 
 export async function updateJobRequirement(
   id: string,
-  payload: Partial<{ required_level: number; importance: number }>,
+  payload: Partial<{ required_level: number; importance: number; required_months_experience?: number; strictness?: string | null }>,
   req?: Request
 ) {
   const supabase = await createSupabaseServerClient(req);

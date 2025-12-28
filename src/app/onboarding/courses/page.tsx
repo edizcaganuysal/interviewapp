@@ -41,29 +41,32 @@ export default function OnboardingCoursesPage() {
   }
 
   return (
-    <div style={{ padding: 16, display: "grid", gap: 12 }}>
-      <h1>Onboarding: Courses</h1>
-      {error && <p>{error}</p>}
-      <form onSubmit={submit} style={{ display: "grid", gap: 8, maxWidth: 520 }}>
-        <input placeholder="Course code" value={code} onChange={(e) => setCode(e.target.value)} required />
-        <input placeholder="Course name" value={name} onChange={(e) => setName(e.target.value)} required />
-        <input placeholder="Term" value={term} onChange={(e) => setTerm(e.target.value)} />
-        <input placeholder="Course key (DSA, OS, DB... optional)" value={courseKey} onChange={(e) => setCourseKey(e.target.value)} />
-        <button type="submit">Add course</button>
-      </form>
+    <div className="page" style={{ display: "grid", gap: 12 }}>
+      <div className="card" style={{ maxWidth: 720, margin: "0 auto", display: "grid", gap: 12 }}>
+        <h1 style={{ margin: 0 }}>Onboarding: Courses</h1>
+        <p style={{ color: "#475569", margin: 0 }}>Add courses or transcript tags so we can credit skills.</p>
+        {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+        <form onSubmit={submit} className="grid">
+          <input placeholder="Course code" value={code} onChange={(e) => setCode(e.target.value)} required />
+          <input placeholder="Course name" value={name} onChange={(e) => setName(e.target.value)} required />
+          <input placeholder="Term" value={term} onChange={(e) => setTerm(e.target.value)} />
+          <input placeholder="Course key (DSA, OS, DB... optional)" value={courseKey} onChange={(e) => setCourseKey(e.target.value)} />
+          <button type="submit" className="primary">Add course</button>
+        </form>
 
-      {added.length > 0 && (
-        <div>
-          <h3>Added</h3>
-          <ul>
-            {added.map((c) => (
-              <li key={c.id}>{c.code} — {c.name}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+        {added.length > 0 && (
+          <div className="card" style={{ background: "#f8fafc" }}>
+            <h3 style={{ margin: 0 }}>Added</h3>
+            <ul>
+              {added.map((c) => (
+                <li key={c.id}>{c.code} — {c.name}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-      <a href="/onboarding/jobs">Next: Jobs</a>
+        <a className="primary-link" href="/onboarding/jobs">Next: Jobs</a>
+      </div>
     </div>
   );
 }

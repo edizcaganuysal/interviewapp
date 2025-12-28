@@ -7,6 +7,7 @@ export default function NewJobPage() {
   const [company, setCompany] = useState("");
   const [roleTitle, setRoleTitle] = useState("");
   const [desc, setDesc] = useState("");
+  const [priority, setPriority] = useState(5);
   const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
@@ -28,7 +29,7 @@ export default function NewJobPage() {
         role_title: roleTitle,
         description_text: desc,
         status: "target",
-        priority_weight: 3,
+        priority_weight: priority,
       }),
     });
 
@@ -52,6 +53,17 @@ export default function NewJobPage() {
         <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Company" required />
         <input value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} placeholder="Role title" required />
         <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="JD text" rows={8} required />
+        <label>
+          Importance (1-10)
+          <input
+            type="number"
+            min={1}
+            max={10}
+            value={priority}
+            onChange={(e) => setPriority(Number(e.target.value))}
+            required
+          />
+        </label>
         <button type="submit">Create</button>
       </form>
     </div>

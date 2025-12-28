@@ -1,15 +1,24 @@
 import { createSupabaseServerClient } from "@/core/supabase/server";
 import { requireUserFromRequest } from "@/core/auth/require-user";
+import { experienceScore, ExperienceRequirement } from "@/features/experience/experience.service";
 
-type JobRequirement = { id: string; job_id: string; skill_id: string; required_level: number; importance: number };
-type SkillState = { skill_id: string; estimated_level: number; confidence: number; evidence_count: number };
+type JobRequirement = {
+  id: string;
+  job_id: string;
+  skill_id: string;
+  required_level: number;
+  importance: number;
+  required_months_experience?: number | null;
+  strictness?: "mandatory" | "preferred" | "nice_to_have" | null;
+};
+type SkillState = { skill_id: string; estimated_level: number; confidence: number; evidence_count: number; months_experience?: number | null };
 type EducationLevel = "phd" | "master" | "bachelor" | "bootcamp" | "other" | null;
 
 async function fetchJobRequirements(jobId: string, req?: Request) {
   const supabase = await createSupabaseServerClient(req);
   const { data, error } = await supabase
     .from("job_skill_requirements")
-    .select("id,job_id,skill_id,required_level,importance")
+    .select("id,job_id,skill_id,required_level,importance,required_months_experience,strictness")
     .eq("job_id", jobId);
   if (error) throw new Error(error.message);
   return (data ?? []) as JobRequirement[];
@@ -19,7 +28,7 @@ async function fetchUserSkillState(userId: string, req?: Request) {
   const supabase = await createSupabaseServerClient(req);
   const { data, error } = await supabase
     .from("user_skill_state")
-    .select("skill_id,estimated_level,confidence,evidence_count")
+    .select("skill_id,estimated_level,confidence,evidence_count,months_experience")
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
   return (data ?? []) as SkillState[];
@@ -46,10 +55,19 @@ function computeSkillsMatch(reqs: JobRequirement[], state: SkillState[]) {
   const gaps: any[] = [];
 
   for (const req of reqs) {
-    const userLevel = stateMap.get(req.skill_id)?.estimated_level ?? 0;
+    const stateEntry = stateMap.get(req.skill_id);
+    const userLevel = stateEntry?.estimated_level ?? 0;
     const gap = Math.max(0, req.required_level - userLevel);
     const perSkillScore = (10 - gap) / 10;
-    weightedSum += perSkillScore * req.importance;
+    let score = perSkillScore;
+    const expReq: ExperienceRequirement = {
+      skill_id: req.skill_id,
+      required_months: Number(req.required_months_experience ?? 0),
+      strictness: (req.strictness as any) ?? "preferred",
+    };
+    const expScore = experienceScore(Number(stateEntry?.months_experience ?? 0), expReq);
+    score = score * 0.7 + expScore * 0.3;
+    weightedSum += score * req.importance;
     totalWeight += req.importance;
     gaps.push({
       skill_id: req.skill_id,
@@ -57,6 +75,10 @@ function computeSkillsMatch(reqs: JobRequirement[], state: SkillState[]) {
       user_level: userLevel,
       gap,
       importance: req.importance,
+      required_months_experience: req.required_months_experience ?? 0,
+      user_months_experience: stateEntry?.months_experience ?? 0,
+      exp_score: expScore,
+      strictness: expReq.strictness,
     });
   }
 
@@ -167,6 +189,12 @@ export async function recomputeAllFitScores(req: Request) {
   }
 }
 
+export async function recomputeFitScoresForJob(userId: string, jobId: string, req?: Request) {
+  const reqs = await fetchJobRequirements(jobId, req);
+  const state = await fetchUserSkillState(userId, req);
+  await computeAndUpsertFitScore(userId, jobId, reqs, state, req);
+}
+
 export async function getJobFitDetail(userId: string, jobId: string, req?: Request) {
   const supabase = await createSupabaseServerClient(req);
   const { data: job, error: jobErr } = await supabase
@@ -187,10 +215,27 @@ export async function getJobFitDetail(userId: string, jobId: string, req?: Reque
 
   const perSkill = reqs.map((r) => {
     const userLevel = state.find((s) => s.skill_id === r.skill_id)?.estimated_level ?? 0;
+    const userMonths = state.find((s) => s.skill_id === r.skill_id)?.months_experience ?? 0;
     const gap = Math.max(0, r.required_level - userLevel);
-    const match = (10 - gap) / 10;
-    return { ...r, user_level: userLevel, match };
+    const levelMatch = (10 - gap) / 10;
+    const expReq: ExperienceRequirement = {
+      skill_id: r.skill_id,
+      required_months: Number(r.required_months_experience ?? 0),
+      strictness: (r.strictness as any) ?? "preferred",
+    };
+    const expScore = experienceScore(userMonths, expReq);
+    const match = levelMatch * 0.7 + expScore * 0.3;
+    return {
+      ...r,
+      user_level: userLevel,
+      user_months_experience: userMonths,
+      required_months_experience: r.required_months_experience ?? 0,
+      strictness: r.strictness ?? "preferred",
+      match,
+      level_match: levelMatch,
+      exp_score: expScore,
+    };
   });
 
-  return { job, skills_match, cv_match, portfolio_match, overall_fit, education_level: edu, perSkill };
+  return { job, skills_match, cv_match, portfolio_match, overall_fit, education_level: edu, edu_penalty: eduPenalty, perSkill };
 }

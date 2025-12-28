@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import createSupabaseBrowserClient from "@/core/supabase/browser";
+import { Loader } from "@/app/components/loader";
 
 type Question = {
   id: string;
@@ -14,6 +15,7 @@ type Question = {
 export default function QuestionPage({ params }: { params: { id: string } }) {
   const [item, setItem] = useState<Question | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   async function load() {
     setError(null);
@@ -26,47 +28,58 @@ export default function QuestionPage({ params }: { params: { id: string } }) {
     const json = await res.json().catch(() => null);
     if (!res.ok) {
       setError(json?.error ?? "Failed to load");
+      setLoading(false);
       return;
     }
     setItem(json.item);
+    setLoading(false);
   }
 
   useEffect(() => {
     load();
   }, [params.id]);
 
+  if (loading) {
+    return (
+      <div className="page">
+        <Loader label="Loading question..." />
+      </div>
+    );
+  }
+
   if (error) {
     return (
-      <div style={{ padding: 16 }}>
-        <h1>Question</h1>
-        <p>{error}</p>
+      <div className="page">
+        <div className="card">
+          <h1>Question</h1>
+          <p>{error}</p>
+        </div>
       </div>
     );
   }
 
   if (!item) {
     return (
-      <div style={{ padding: 16 }}>
-        <h1>Question</h1>
-        <p>Loading...</p>
+      <div className="page">
+        <Loader label="Loading question..." />
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 16, display: "grid", gap: 12 }}>
-      <h1>{item.title}</h1>
-      <div>
-        <div>Difficulty: {item.difficulty_weight}</div>
-        <div>Estimated minutes: {item.estimated_minutes}</div>
-        <div>Target skills: {(item.skill_ids ?? []).join(", ")}</div>
+    <div className="page" style={{ display: "grid", gap: 12 }}>
+      <div className="section-title">
+        <div>
+          <h1 style={{ margin: 0 }}>{item.title}</h1>
+          <div style={{ color: "#475569" }}>Target skills: {(item.skill_ids ?? []).join(", ")}</div>
+        </div>
+        <div className="pill">Diff {item.difficulty_weight} • {item.estimated_minutes} min</div>
       </div>
 
-      <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
-        <p>Practice prompt:</p>
-        <p>
-          Solve the problem and outline your approach, time/space complexity, and test cases. Use this space to
-          self-evaluate before checking solutions.
+      <div className="card">
+        <p style={{ margin: 0, fontWeight: 600 }}>Practice prompt</p>
+        <p style={{ margin: "6px 0" }}>
+          Solve and outline approach, time/space complexity, and key test cases. Self-evaluate before checking solutions.
         </p>
       </div>
 
@@ -84,11 +97,13 @@ function AttemptForm({ questionId }: { questionId: string }) {
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    setLoading(true);
     const supabase = createSupabaseBrowserClient();
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
@@ -112,13 +127,15 @@ function AttemptForm({ questionId }: { questionId: string }) {
     const json = await res.json().catch(() => null);
     if (!res.ok) {
       setError(json?.error ?? "Submit failed");
+      setLoading(false);
       return;
     }
     setSuccess("Attempt saved. Skill updates applied.");
+    setLoading(false);
   }
 
   return (
-    <form onSubmit={submit} style={{ display: "grid", gap: 8, maxWidth: 520 }}>
+    <form onSubmit={submit} className="card" style={{ display: "grid", gap: 8, maxWidth: 700 }}>
       <h3>Log attempt</h3>
       {error && <p>{error}</p>}
       {success && <p>{success}</p>}
@@ -159,7 +176,9 @@ function AttemptForm({ questionId }: { questionId: string }) {
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} />
       </label>
 
-      <button type="submit">Submit attempt</button>
+      <button type="submit" className="primary" disabled={loading}>
+        {loading ? "Saving..." : "Submit attempt"}
+      </button>
     </form>
   );
 }

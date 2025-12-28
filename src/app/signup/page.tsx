@@ -8,44 +8,68 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setLoading(true);
 
     const { error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
       setError(error.message);
+      setLoading(false);
       return;
     }
 
-    window.location.href = "/login";
+    window.location.href = "/dashboard";
+  }
+
+  async function oauth(provider: "google" | "github") {
+    setError(null);
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.origin + "/dashboard" } });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    }
   }
 
   return (
-    <form onSubmit={onSubmit} style={{ padding: 16, display: "grid", gap: 12, maxWidth: 420 }}>
-      <h1>Sign Up</h1>
+    <div className="page">
+      <div className="card" style={{ maxWidth: 480, margin: "0 auto", display: "grid", gap: 12 }}>
+        <h1 style={{ margin: 0 }}>Join InterPrep</h1>
+        <p style={{ margin: 0, color: "#475569" }}>Create your account to track fits and practice.</p>
+        {error && <div style={{ color: "#b91c1c" }}>{error}</div>}
+        <form onSubmit={onSubmit} className="grid">
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
 
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-      />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
 
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-      />
+          <button type="submit" className="primary" disabled={loading}>
+            {loading ? "Creating..." : "Create account"}
+          </button>
+        </form>
 
-      {error && <p>{error}</p>}
-
-      <button type="submit">Create Account</button>
-    </form>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button className="ghost-link" onClick={() => oauth("google")} disabled={loading}>Continue with Google</button>
+          <button className="ghost-link" onClick={() => oauth("github")} disabled={loading}>GitHub</button>
+        </div>
+        <a href="/login" style={{ color: "#0a66c2", fontWeight: 600 }}>Have an account? Log in</a>
+      </div>
+    </div>
   );
 }

@@ -11,7 +11,9 @@ import { upsertSkillState } from "@/features/skills/skill-state.service";
 const InputSchema = z.object({
   skill_name: z.string().min(2),
   description: z.string().min(10),
+  evidence: z.string().min(5),
   level: z.number().min(0).max(10).default(5),
+  months_experience: z.number().min(0).max(600).default(0),
 });
 
 export async function POST(req: Request) {
@@ -59,9 +61,11 @@ export async function POST(req: Request) {
       setLevel: parsed.level,
       confidenceBoost: 0.15,
       evidenceIncrement: 1,
+      monthsExperience: parsed.months_experience,
       reason: {
         source: "manual_claim",
         description: parsed.description,
+        evidence: parsed.evidence,
       },
     },
     req

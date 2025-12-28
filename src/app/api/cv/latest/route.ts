@@ -12,11 +12,13 @@ export async function GET(req: Request) {
   }
 
   const { data, error } = await supabase
-    .from("user_skill_state")
-    .select("skill_id,estimated_level,confidence,evidence_count,months_experience")
+    .from("cvs")
+    .select("id,extracted_text,parsed_json,created_at")
     .eq("user_id", user.id)
-    .order("estimated_level", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ items: data ?? [] });
+  return NextResponse.json({ item: data });
 }

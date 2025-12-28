@@ -3,14 +3,39 @@
 import { useEffect, useState } from "react";
 import createSupabaseBrowserClient from "@/core/supabase/browser";
 
-type SkillRow = { skill_id: string; estimated_level: number; confidence: number; evidence_count: number };
+type SkillRow = {
+  skill_id: string;
+  estimated_level: number;
+  confidence: number;
+  evidence_count: number;
+  months_experience?: number;
+};
+
+const LEVEL_BANDS = [
+  { min: 0, max: 1, label: "L1 Intro", desc: "Knows names, not yet applied." },
+  { min: 1, max: 2, label: "L2 Vocabulary", desc: "Can follow examples with guidance." },
+  { min: 2, max: 3, label: "L3 Basics", desc: "Implements simple cases from templates." },
+  { min: 3, max: 4, label: "L4 Working", desc: "Solves straightforward problems solo." },
+  { min: 4, max: 5, label: "L5 Solid", desc: "Applies core patterns correctly." },
+  { min: 5, max: 6, label: "L6 Confident", desc: "Handles edge cases, explains tradeoffs." },
+  { min: 6, max: 7, label: "L7 Advanced", desc: "Optimizes solutions, adapts patterns." },
+  { min: 7, max: 8, label: "L8 Strong", desc: "Designs new variations, guides peers." },
+  { min: 8, max: 9, label: "L9 Expert", desc: "Solves hard/novel problems quickly." },
+  { min: 9, max: 10, label: "L10 Specialist", desc: "Deep expertise; mentors and architects." },
+];
+
+function bandFor(level: number) {
+  return LEVEL_BANDS.find((b) => level >= b.min && level < b.max) ?? LEVEL_BANDS[LEVEL_BANDS.length - 1];
+}
 
 export default function SkillsPage() {
   const [items, setItems] = useState<SkillRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
+  const [evidence, setEvidence] = useState("");
   const [level, setLevel] = useState(5);
+  const [months, setMonths] = useState(0);
   const [success, setSuccess] = useState<string | null>(null);
 
   async function load() {
@@ -48,65 +73,114 @@ export default function SkillsPage() {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ skill_name: name, description: desc, level }),
+      body: JSON.stringify({
+        skill_name: name,
+        description: desc,
+        evidence,
+        level,
+        months_experience: months,
+      }),
     });
     const json = await res.json().catch(() => null);
     if (!res.ok) {
       setError(json?.error ?? "Add failed");
       return;
     }
-    setSuccess(`Added/updated skill ${json.skill_id}`);
+    setSuccess(`Saved evidence for ${json.skill_id}`);
     setName("");
     setDesc("");
     setLevel(5);
+    setEvidence("");
+    setMonths(0);
     await load();
   }
 
   return (
-    <div style={{ padding: 16, display: "grid", gap: 12 }}>
-      <h1>Skills</h1>
-      <p>View your skill state and add your own skills with evidence (not limited to attempts).</p>
+    <div className="page" style={{ display: "grid", gap: 16 }}>
+      <div className="section-title">
+        <h1 style={{ margin: 0 }}>Skills</h1>
+        <a className="ghost-link" href="/cv">Sync from CV</a>
+      </div>
+      <div className="card">
+        <form onSubmit={addSkill} className="grid">
+          <div className="section-title">
+            <h3 style={{ margin: 0 }}>Add / claim a skill</h3>
+            {success && <span className="pill">Updated</span>}
+          </div>
+          {error && <div style={{ color: "#b91c1c" }}>{error}</div>}
+          <input placeholder="Skill name" value={name} onChange={(e) => setName(e.target.value)} required />
+          <textarea
+            placeholder="Explain how you earned this skill (projects, courses, problems solved, etc.)"
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            rows={3}
+            required
+          />
+          <textarea
+            placeholder="Where does this show up? (e.g., project link, CV bullet, transcript line)"
+            value={evidence}
+            onChange={(e) => setEvidence(e.target.value)}
+            rows={2}
+            required
+          />
+          <label>
+            Estimated level (0-10)
+            <input type="number" min={0} max={10} value={level} onChange={(e) => setLevel(Number(e.target.value))} />
+          </label>
+          <label>
+            Experience (months)
+            <input type="number" min={0} max={600} value={months} onChange={(e) => setMonths(Number(e.target.value))} />
+          </label>
+          <button type="submit" className="primary">Save evidence</button>
+        </form>
+      </div>
 
-      <form onSubmit={addSkill} style={{ display: "grid", gap: 8, maxWidth: 640, padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
-        <h3>Add / claim a skill</h3>
-        {error && <p>{error}</p>}
-        {success && <p>{success}</p>}
-        <input placeholder="Skill name" value={name} onChange={(e) => setName(e.target.value)} required />
-        <textarea
-          placeholder="Explain how you earned this skill (projects, courses, problems solved, etc.)"
-          value={desc}
-          onChange={(e) => setDesc(e.target.value)}
-          rows={4}
-          required
-        />
-        <label>
-          Estimated level (0-10)
-          <input type="number" min={0} max={10} value={level} onChange={(e) => setLevel(Number(e.target.value))} />
-        </label>
-        <button type="submit">Save skill evidence</button>
-      </form>
-
-      <h3>Your skill state</h3>
-      <table cellPadding={8} style={{ borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            <th align="left">Skill</th>
-            <th align="left">Level</th>
-            <th align="left">Confidence</th>
-            <th align="left">Evidence</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((s) => (
-            <tr key={s.skill_id} style={{ borderTop: "1px solid #ddd" }}>
-              <td>{s.skill_id}</td>
-              <td>{s.estimated_level.toFixed(1)}</td>
-              <td>{(s.confidence * 100).toFixed(0)}%</td>
-              <td>{s.evidence_count}</td>
+      <div className="card">
+        <div className="section-title">
+          <h3 style={{ margin: 0 }}>Your skill state</h3>
+          <div className="pill">Ranges show realistic bands (not single points)</div>
+        </div>
+        <table className="pro">
+          <thead>
+            <tr>
+              <th>Skill</th>
+              <th>Range</th>
+              <th>Band / Description</th>
+              <th>Experience</th>
+              <th>Evidence</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map((s) => {
+              const band = bandFor(s.estimated_level);
+              const lower = Math.max(0, s.estimated_level - 0.5).toFixed(1);
+              const upper = Math.min(10, s.estimated_level + 0.5).toFixed(1);
+              const support = s.evidence_count >= 5 ? "Strong" : s.evidence_count >= 2 ? "Moderate" : "Light";
+              const warnHidden = s.evidence_count === 0 ? "⚠️ CV’de belirtilmemiş olabilir" : "";
+              const expDisplay = s.months_experience && s.months_experience > 0 ? `${s.months_experience} mo` : "N/A";
+              return (
+                <tr key={s.skill_id}>
+                  <td style={{ fontWeight: 600 }}>{s.skill_id}</td>
+                  <td>{lower} – {upper}</td>
+                  <td>
+                    <div style={{ display: "grid", gap: 2 }}>
+                      <span className="pill">{band.label}</span>
+                      <small style={{ color: "#475569" }}>{band.desc}</small>
+                    </div>
+                  </td>
+                  <td>{expDisplay}</td>
+                  <td>{support} ({s.evidence_count} evidence) {warnHidden}</td>
+                </tr>
+              );
+            })}
+            {items.length === 0 && (
+              <tr>
+                <td colSpan={4}>No skills yet. Add evidence above or sync from CV.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

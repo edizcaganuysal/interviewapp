@@ -31,16 +31,19 @@ export default function OnboardingGoalPage() {
   }
 
   return (
-    <div style={{ padding: 16 }}>
-      <h1>Onboarding: Goal</h1>
-      {error && <p>{error}</p>}
-      <form onSubmit={submit} style={{ display: "grid", gap: 8, maxWidth: 420 }}>
-        <label>
-          Preferred name
-          <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
-        </label>
-        <button type="submit">Continue</button>
-      </form>
+    <div className="page">
+      <div className="card" style={{ maxWidth: 520, margin: "0 auto" }}>
+        <h1>Welcome to InterPrep</h1>
+        <p style={{ color: "#475569" }}>We will personalize your jobs, skills, and practice plan.</p>
+        {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+        <form onSubmit={submit} className="grid">
+          <label>
+            Preferred name
+            <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
+          </label>
+          <button type="submit" className="primary">Continue</button>
+        </form>
+      </div>
     </div>
   );
 }

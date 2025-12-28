@@ -5,6 +5,8 @@ export const RequirementSchema = z.object({
   skill_id_optional: z.string().optional().nullable(),
   required_level_0_10: z.number(),
   importance_1_5: z.number(),
+  required_months_experience: z.number().optional(),
+  strictness: z.enum(["mandatory", "preferred", "nice_to_have"]).optional(),
 });
 
 export const ProposedSkillSchema = z.object({
@@ -24,6 +26,9 @@ export const CvDetectedSkillSchema = z.object({
   skill_phrase: z.string(),
   skill_id_optional: z.string().optional().nullable(),
   evidence_snippets: z.array(z.string()),
+  months_experience: z.number().optional(),
+  estimated_level_0_10: z.number().optional(),
+  evidence_location: z.string().optional(),
 });
 
 export const CvIssueSchema = z.object({
