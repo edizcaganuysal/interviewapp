@@ -1,5 +1,6 @@
-import { fetchQuestionById, fetchRecentAttemptsForSkill, upsertSkillState } from "./attempts.repo";
+import { fetchQuestionById, fetchRecentAttemptsForSkill } from "./attempts.repo";
 import type { AttemptInput } from "./schemas";
+import { upsertSkillState } from "@/features/skills/skill-state.service";
 
 type SkillDelta = { skill_id: string; delta: number };
 
@@ -41,19 +42,17 @@ export async function applySkillUpdatesForAttempt(userId: string, input: Attempt
     );
     deltas.push({ skill_id: skillId, delta });
 
-    await upsertSkillState(
-      userId,
-      skillId,
+    await upsertSkillState(userId, skillId, {
       delta,
-      {
+      confidenceBoost: delta / 5,
+      reason: {
         source: "attempt",
         solved: input.solved,
         perceived_difficulty: input.perceived_difficulty,
         question_difficulty: question.difficulty_weight,
         hints_used: input.hints_used,
       },
-      req
-    );
+    }, req);
   }
 
   return { deltas, question };

@@ -3,10 +3,11 @@
 import { useState } from "react";
 import createSupabaseBrowserClient from "@/core/supabase/browser";
 
-export default function OnboardingCvPage() {
+export default function CvPage() {
   const [text, setText] = useState("");
   const [education, setEducation] = useState("bachelor");
   const [transcript, setTranscript] = useState("");
+  const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
@@ -26,18 +27,18 @@ export default function OnboardingCvPage() {
     });
     const json = await res.json().catch(() => null);
     if (!res.ok) {
-      setError(json?.error ?? "Save failed");
+      setError(json?.error ?? "Failed");
       return;
     }
-    window.location.href = "/onboarding/courses";
+    setResult(json);
   }
 
   return (
     <div style={{ padding: 16, display: "grid", gap: 12 }}>
-      <h1>Onboarding: CV</h1>
-      <p>Paste your CV text and optional transcript; we will detect skills and education.</p>
+      <h1>CV Upload & Evaluation</h1>
+      <p>Upload CV text and optional transcript. We will detect skills, create custom skills if needed, and update your skill profile.</p>
       {error && <p>{error}</p>}
-      <form onSubmit={submit} style={{ display: "grid", gap: 8, maxWidth: 700 }}>
+      <form onSubmit={submit} style={{ display: "grid", gap: 8, maxWidth: 760 }}>
         <label>
           Highest education
           <select value={education} onChange={(e) => setEducation(e.target.value)}>
@@ -56,8 +57,17 @@ export default function OnboardingCvPage() {
           Transcript / course list (optional)
           <textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} rows={6} />
         </label>
-        <button type="submit">Evaluate & continue</button>
+        <button type="submit">Evaluate CV</button>
       </form>
+
+      {result && (
+        <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
+          <h3>Evaluation saved</h3>
+          <div>Matched skills: {result.matched?.length ?? 0}</div>
+          <div>New skills created: {(result.created_skills ?? []).join(", ") || "None"}</div>
+          <div>Skills from courses: {(result.mapped_from_courses ?? []).length}</div>
+        </div>
+      )}
     </div>
   );
 }

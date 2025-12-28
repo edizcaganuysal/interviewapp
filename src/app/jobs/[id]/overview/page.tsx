@@ -15,6 +15,7 @@ type Job = {
 
 export default function JobOverviewPage({ params }: { params: { id: string } }) {
   const [job, setJob] = useState<Job | null>(null);
+  const [fit, setFit] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
@@ -37,6 +38,7 @@ export default function JobOverviewPage({ params }: { params: { id: string } }) 
     }
 
     setJob(json.item);
+    setFit(json.fit ?? null);
   }
 
   useEffect(() => {
@@ -80,6 +82,38 @@ export default function JobOverviewPage({ params }: { params: { id: string } }) 
 
       <h3 style={{ marginTop: 16 }}>Description</h3>
       <pre style={{ whiteSpace: "pre-wrap" }}>{job.description_text}</pre>
+
+      {fit && (
+        <div style={{ marginTop: 16, padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
+          <h3>Fit snapshot</h3>
+          <div>Overall fit: {fit.overall_fit?.toFixed?.(1)}</div>
+          <div>Skills match: {fit.skills_match?.toFixed?.(1)} | CV match: {fit.cv_match?.toFixed?.(1)}</div>
+          {fit.education_level && <div>Education level: {fit.education_level}</div>}
+          <h4 style={{ marginTop: 8 }}>Requirements</h4>
+          <table cellPadding={6} style={{ borderCollapse: "collapse", width: "100%" }}>
+            <thead>
+              <tr>
+                <th align="left">Skill</th>
+                <th align="left">Required</th>
+                <th align="left">Importance</th>
+                <th align="left">Your level</th>
+                <th align="left">Match</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(fit.perSkill ?? []).map((r: any) => (
+                <tr key={r.skill_id} style={{ borderTop: "1px solid #eee" }}>
+                  <td>{r.skill_id}</td>
+                  <td>{r.required_level}</td>
+                  <td>{r.importance}</td>
+                  <td>{r.user_level?.toFixed?.(1) ?? 0}</td>
+                  <td>{(r.match * 100).toFixed(0)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

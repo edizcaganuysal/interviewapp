@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/core/supabase/server";
 import { requireUserFromRequest } from "@/core/auth/require-user";
+import { getJobFitDetail } from "@/features/jobs/fit-score.service";
 
 export async function GET(req: Request, ctx: { params: { id: string } }) {
   const supabase = await createSupabaseServerClient(req);
@@ -11,13 +12,10 @@ export async function GET(req: Request, ctx: { params: { id: string } }) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const { data, error } = await supabase
-    .from("jobs")
-    .select("id,company,role_title,description_text,status,priority_weight,created_at")
-    .eq("id", ctx.params.id)
-    .eq("user_id", user.id)
-    .single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ item: data });
+  try {
+    const detail = await getJobFitDetail(user.id, ctx.params.id, req);
+    return NextResponse.json({ item: detail.job, fit: detail });
+  } catch (err: any) {
+    return NextResponse.json({ error: err?.message ?? "FAILED" }, { status: 500 });
+  }
 }

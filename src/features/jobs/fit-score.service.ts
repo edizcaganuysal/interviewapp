@@ -3,6 +3,7 @@ import { requireUserFromRequest } from "@/core/auth/require-user";
 
 type JobRequirement = { id: string; job_id: string; skill_id: string; required_level: number; importance: number };
 type SkillState = { skill_id: string; estimated_level: number; confidence: number; evidence_count: number };
+type EducationLevel = "phd" | "master" | "bachelor" | "bootcamp" | "other" | null;
 
 async function fetchJobRequirements(jobId: string, req?: Request) {
   const supabase = await createSupabaseServerClient(req);
@@ -22,6 +23,19 @@ async function fetchUserSkillState(userId: string, req?: Request) {
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
   return (data ?? []) as SkillState[];
+}
+
+async function fetchLatestEducation(userId: string, req?: Request): Promise<EducationLevel> {
+  const supabase = await createSupabaseServerClient(req);
+  const { data } = await supabase
+    .from("cvs")
+    .select("parsed_json")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+  const level = (data as any)?.parsed_json?.education_level;
+  return (level as EducationLevel) ?? null;
 }
 
 function computeSkillsMatch(reqs: JobRequirement[], state: SkillState[]) {
@@ -64,6 +78,16 @@ function computeCvMatch(reqs: JobRequirement[], state: SkillState[]) {
   return total ? (covered / total) * 100 : 0;
 }
 
+function educationPenalty(job: any, education: EducationLevel) {
+  const desc = `${job?.role_title ?? ""} ${job?.description_text ?? ""}`.toLowerCase();
+  const needsMasters = desc.includes("master") || desc.includes("graduate degree");
+  const needsPhd = desc.includes("phd") || desc.includes("doctorate");
+
+  if (needsPhd && education !== "phd") return 0.5;
+  if (needsMasters && education !== "master" && education !== "phd") return 0.7;
+  return 1;
+}
+
 export async function recomputeFitScoresForSkills(userId: string, skillIds: string[], req?: Request) {
   const supabase = await createSupabaseServerClient(req);
   const { data: jobs, error } = await supabase
@@ -89,10 +113,13 @@ async function computeAndUpsertFitScore(
   req?: Request
 ) {
   const supabase = await createSupabaseServerClient(req);
+  const { data: job } = await supabase.from("jobs").select("id,role_title,description_text").eq("id", jobId).single();
   const { score: skills_match, gaps } = computeSkillsMatch(reqs, state);
   const cv_match = computeCvMatch(reqs, state);
   const portfolio_match = 50;
-  const overall_fit = 0.45 * skills_match + 0.35 * cv_match + 0.2 * portfolio_match;
+  const edu = await fetchLatestEducation(userId, req);
+  const eduPenalty = educationPenalty(job, edu);
+  const overall_fit = (0.45 * skills_match + 0.35 * cv_match + 0.2 * portfolio_match) * eduPenalty;
 
   const top_gaps = gaps.slice(0, 3);
   const top_wins = state
@@ -107,7 +134,7 @@ async function computeAndUpsertFitScore(
     expected_gain_estimate: 5,
   }));
 
-  const explanation_json = { top_gaps, top_wins, recommended_actions };
+  const explanation_json = { top_gaps, top_wins, recommended_actions, education_penalty: eduPenalty, education_level: edu };
 
   await supabase.from("fit_scores").upsert(
     {
@@ -138,4 +165,32 @@ export async function recomputeAllFitScores(req: Request) {
     const reqs = await fetchJobRequirements(job.id, req);
     await computeAndUpsertFitScore(user.id, job.id, reqs, state, req);
   }
+}
+
+export async function getJobFitDetail(userId: string, jobId: string, req?: Request) {
+  const supabase = await createSupabaseServerClient(req);
+  const { data: job, error: jobErr } = await supabase
+    .from("jobs")
+    .select("id,company,role_title,description_text,status,priority_weight,created_at")
+    .eq("id", jobId)
+    .single();
+  if (jobErr || !job) throw new Error(jobErr?.message ?? "NOT_FOUND");
+
+  const reqs = await fetchJobRequirements(jobId, req);
+  const state = await fetchUserSkillState(userId, req);
+  const { score: skills_match, gaps } = computeSkillsMatch(reqs, state);
+  const cv_match = computeCvMatch(reqs, state);
+  const portfolio_match = 50;
+  const edu = await fetchLatestEducation(userId, req);
+  const eduPenalty = educationPenalty(job, edu);
+  const overall_fit = (0.45 * skills_match + 0.35 * cv_match + 0.2 * portfolio_match) * eduPenalty;
+
+  const perSkill = reqs.map((r) => {
+    const userLevel = state.find((s) => s.skill_id === r.skill_id)?.estimated_level ?? 0;
+    const gap = Math.max(0, r.required_level - userLevel);
+    const match = (10 - gap) / 10;
+    return { ...r, user_level: userLevel, match };
+  });
+
+  return { job, skills_match, cv_match, portfolio_match, overall_fit, education_level: edu, perSkill };
 }
